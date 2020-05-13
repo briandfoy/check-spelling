@@ -499,6 +499,10 @@ comment() {
   payload="$2"
   if [ -n "$payload" ]; then
     payload="--data @$payload"
+    method="$3"
+    if [ -n "$method" ]; then
+      method="-X $method"
+    fi
   fi
   curl -L -s -S \
     $method \
@@ -528,9 +532,20 @@ post_commit_comment() {
       BODY=$(mktemp)
       echo "$OUTPUT" > $BODY
       body_to_payload $BODY
-      rm -f $BODY
       echo $COMMENTS_URL
-      comment "$COMMENTS_URL" "$PAYLOAD"
+      response=$(mktemp)
+      comment "$COMMENTS_URL" "$PAYLOAD" > $response
+      cat $response
+      COMMENTS_URL=$(jq -r .url < $response)
+      (
+        echo
+        echo
+        echo "[Quote this line]($COMMENTS_URL) to have @check-spelling-bot apply these changes."
+      )>> $BODY
+      PAYLOAD=$(body_to_payload $BODY)
+      rm -f $BODY
+      comment "$COMMENTS_URL" "$PAYLOAD" "PATCH" > $response
+      cat $response
     else
       echo "$OUTPUT"
     fi
