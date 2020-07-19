@@ -2,11 +2,13 @@
 Q='"'
 q="'"
 strip_lead() {
-  perl -pne 's/^\s+//'
+  perl -ne 's/^\s+//; next unless /./; print'
 }
 generate_instructions() {
   instructions=$(mktemp)
-  echo 'pushd $(git rev-parse --show-toplevel)' >> $instructions
+  if [ -n "$skip_push_and_pop" ]; then
+    echo '(cd $(git rev-parse --show-toplevel)' >> $instructions
+  fi
   to_retrieve_expect >> $instructions
   if [ -n "$patch_remove" ]; then
     if [ -z "$expect_files" ]; then
@@ -28,16 +30,39 @@ generate_instructions() {
   fi
   if [ -n "$patch_add" ]; then
     echo 'perl -e '$q'
-my $new_expect_file="'$new_expect_file'";
-use File::Path qw(make_path);
-make_path "'$(dirname $new_expect_file)'";
-open FILE, q{<}, $new_expect_file; chomp(my @words = <FILE>); close FILE;
-my @add=qw('$q$Q"$patch_add"$Q$q');
-my %items; @items{@words} = @words x (1); @items{@add} = @add x (1);
-@words = sort {lc($a) cmp lc($b)} keys %items;
-open FILE, q{>}, $new_expect_file; for my $word (@words) { print FILE "$word\n" if $word =~ /\w/; };
-close FILE;'$q >> $instructions
+      my $new_expect_file="'$new_expect_file'";
+      use File::Path qw(make_path);
+      use File::Basename qw(dirname);
+      make_path (dirname($new_expect_file));
+      open FILE, q{<}, $new_expect_file; chomp(my @words = <FILE>); close FILE;
+      my @add=qw('$q$Q"$patch_add"$Q$q');
+      my %items; @items{@words} = @words x (1); @items{@add} = @add x (1);
+      @words = sort {lc($a) cmp lc($b)} keys %items;
+      open FILE, q{>}, $new_expect_file; for my $word (@words) { print FILE "$word\n" if $word =~ /\w/; };
+      close FILE;'$q |
+    strip_lead >> $instructions
   fi
-  echo 'popd' >> $instructions
+  if [ -n "$skip_push_and_pop" ]; then
+    echo ')' >> $instructions
+  fi
   echo $instructions
+}
+patch_variables() {
+  if [ -n "$patch_remove" ]; then
+    echo '
+      patch_remove=$(perl -ne '$q'next unless s{^</summary>(.*)</details>$}{$1}; print'$q' < '$1')
+      ' | strip_lead
+  fi
+  if [ -n "$patch_add" ]; then
+    echo '
+      patch_add=$(perl -e '$q'$/=undef;
+        $_=<>;
+        s{<details>.*}{}s;
+        s{^#.*}{};
+        s{\n##.*}{};
+        s{(?:^|\n)\s*\*}{}g;
+        s{\s+}{ }g;
+        print'$q' < '$1')
+      ' | strip_lead
+  fi
 }
