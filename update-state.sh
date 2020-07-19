@@ -3,7 +3,9 @@ Q='"'
 q="'"
 generate_instructions() {
   instructions=$(mktemp)
-  echo 'pushd $(git rev-parse --show-toplevel)' >> $instructions
+  if [ -z "$skip_push_and_pop" ]; then
+    echo 'pushd $(git rev-parse --show-toplevel)' >> $instructions
+  fi
   to_retrieve_expect >> $instructions
   if [ -n "$patch_remove" ]; then
     if [ -z "$expect_files" ]; then
@@ -34,6 +36,8 @@ my %items; @items{@words} = @words x (1); @items{@add} = @add x (1);
 open FILE, q{>}, $new_expect_file; for my $word (@words) { print FILE "$word\n" if $word =~ /\w/; };
 close FILE;'$q >> $instructions
   fi
-  echo 'popd' >> $instructions
+  if [ -z "$skip_push_and_pop" ]; then
+    echo 'popd' >> $instructions
+  fi
   echo $instructions
 }

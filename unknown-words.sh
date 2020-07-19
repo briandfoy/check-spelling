@@ -16,11 +16,94 @@ main() {
     schedule)
       exec "$spellchecker/check-pull-requests.sh"
       ;;
+    issue_comment|pull_request_review_comment)
+      handle_comment
+      ;;
   esac
 }
 
 command_v() {
   command -v "$1" >/dev/null 2>/dev/null
+}
+
+handle_comment() {
+  action=$(jq -r .action < "$GITHUB_EVENT_PATH")
+  if [ "$action" != "created" ]; then
+    exit 0
+  fi
+
+  issue=$(mktemp)
+  jq -r .issue < "$GITHUB_EVENT_PATH" > $issue
+  number=$(jq -r .number < $issue)
+  created_at=$(jq -r .created_at < $issue)
+  pull_request_url=$(jq -r .pull_request.url < $issue)
+  pull_request_info=$(mktemp)
+  pull_request "$pull_request_url" | jq .head > $pull_request_info
+  pull_request_ref=$(jq -r .ref < $pull_request_info)
+  pull_request_sha=$(jq -r .sha < $pull_request_info)
+  pull_request_repo=$(jq -r .repo.clone_url < $pull_request_info)
+  git remote add request $pull_request_repo
+  git fetch request "$pull_request_sha"
+  git config advice.detachedHead false
+  git checkout "$pull_request_sha"
+
+  comment=$(mktemp)
+  jq -r .comment < "$GITHUB_EVENT_PATH" > $comment
+  user_login=$(jq -r .user.login < $comment)
+  body=$(jq -r .body < $comment)
+  trigger_comment_url=$(jq -r .url < $comment)
+
+  trigger=$(echo "$body" | perl -ne 'print if /\@check-spelling-bot(?:\s+|:\s*)apply/')
+  if [ -z "$trigger" ]; then
+    exit 0
+  fi
+
+  number_filter() {
+    perl -pne 's/\{.*\}//'
+  }
+  comments_base=$(jq -r .repository.comments_url < "$GITHUB_EVENT_PATH" | number_filter)
+  issue_comments_base=$(jq -r .repository.issue_comment_url < "$GITHUB_EVENT_PATH" | number_filter)
+  export comments_url="$comments_base|$issue_comments_base"
+  comment_url=$(echo "$trigger" | perl -ne 'next unless m{((?:$ENV{comments_url})/\d+)}; print "$1\n";')
+  if [ -z "$comment_url" ]; then
+    echo "::error ::Did not find $comments_url in comment"
+    react "$trigger_comment_url" "confused" > /dev/null
+    exit 1
+  fi
+  comment=$(comment "$comment_url")
+  comment=$(echo "$comment" | jq -r .body)
+  script=$(mktemp)
+  echo "$comment" | perl -e '$/=undef; $_=<>; s/.*\`\`\`(.*)\`\`\`.*/$1/s;print' >> $script
+  . "$spellchecker/update-state.sh"
+  capture_items() {
+    perl -ne 'next unless s{^my \@'$1'=qw\('$q$Q'(.*)'$Q$q'\);$}{$1}; print'
+  }
+  capture_item() {
+    perl -ne 'next unless s{^my \$'$1'="(.*)";$}{$1}; print'
+  }
+  expect_files=$(capture_items expect_files < $script)
+  new_expect_file=$(capture_item new_expect_file < $script)
+  patch_remove=$(capture_items stale < $script)
+  patch_add=$(capture_items add < $script)
+  skip_push_and_pop=1
+  instructions=$(generate_instructions)
+  sh $instructions
+  git add -u
+  git config user.email "check-spelling-bot@users.noreply.github.com"
+  git config user.name "check-spelling-bot"
+  git commit \
+    --author="$user@users.noreply.github.com" \
+    --date="$created_at"\
+    -m "[check-spelling] Applying automated check-spelling metadata updates
+
+Update per $comment_url
+Accepted in $trigger_comment_url"
+  git push request "HEAD:$pull_request_ref"
+  react "$trigger_comment_url" 'eyes' > /dev/null
+  react "$comment_url" 'rocket' > /dev/null
+
+  echo "# end"
+  exit 0
 }
 
 define_variables() {
@@ -492,6 +575,25 @@ body_to_payload() {
   echo '{}' | jq --rawfile body "$BODY" '.body = $body' > $PAYLOAD
   cat $PAYLOAD >&2
   echo "$PAYLOAD"
+}
+
+pull_request() {
+  pull_request_url="$1"
+  curl -L -s -S \
+    -H "Authorization: token $GITHUB_TOKEN" \
+    --header "Content-Type: application/json" \
+    "$pull_request_url"
+}
+
+react() {
+  url="$1"
+  reaction="$2"
+  curl -L -s -S \
+    -X POST \
+    -H "Authorization: token $GITHUB_TOKEN" \
+    -H "Accept: application/vnd.github.squirrel-girl-preview+json" \
+    "$url"/reactions \
+    -d '{"content":"'"$reaction"'"}'
 }
 
 comment() {
