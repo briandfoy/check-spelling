@@ -432,7 +432,7 @@ $err
     fi
   fi
 }
-bullet_words() {
+bullet_words_and_warn() {
   echo "$1" > "$tokens_file"
   perl -pne 's/^(.)/* $1/' "$tokens_file"
   rm -f "$run_warnings"
@@ -601,7 +601,7 @@ fewer_misspellings() {
     instructions=$(
     make_instructions
     )
-      spelling_info "$title" "$(bullet_words "$patch_add")" "$instructions"
+    spelling_info "$title" "$(bullet_words_and_warn "$patch_add")" "$instructions"
     end_group
     quit
   fi
@@ -612,7 +612,7 @@ more_misspellings() {
   instructions=$(
     make_instructions
   )
-    spelling_warning "$title" "$(bullet_words "$new_output")" "$instructions"
+  spelling_warning "$title" "$(bullet_words_and_warn "$new_output")" "$instructions"
   end_group
   quit 1
 }
