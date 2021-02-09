@@ -936,8 +936,7 @@ generate_curl_instructions() {
     '"$(patch_variables $Q'$comment_body'$Q)"'
     update_files
     rm $comment_body
-    git add -u &&
-    [ ! -e "$new_expect_file" ] || git add "$new_expect_file"
+    git add -u
     ' | sed -e 's/^    //' >> $instructions
   echo $instructions
 }

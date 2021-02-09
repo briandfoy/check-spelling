@@ -39,7 +39,9 @@ generate_instructions() {
       my %items; @items{@words} = @words x (1); @items{@add} = @add x (1);
       @words = sort {lc($a) cmp lc($b)} keys %items;
       open FILE, q{>}, $new_expect_file; for my $word (@words) { print FILE "$word\n" if $word =~ /\w/; };
-      close FILE;'$q |
+      close FILE;
+      system("git", "add", $new_expect_file);
+    '$q |
     strip_lead >> $instructions
   fi
   if [ -n "$skip_push_and_pop" ]; then
