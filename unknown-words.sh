@@ -268,6 +268,21 @@ check_for_newline_at_eof() {
   fi
 }
 
+check_dictionary() {
+  file="$1"
+  expected_chars="[a-zA-Z']"
+  unexpected_chars="[^a-zA-Z']"
+  perl -e "
+while (<>) {
+  chomp;
+  next unless /^(${expected_chars}*)(${unexpected_chars}+)/;"'
+  my ($prefix, $problematic) = ($1, $2);
+  my $start=length $prefix;
+  my $stop=$start + length($problematic);
+  print "$ARGV: line $., columns $start-$stop, Warning - ignoring entry because it contains non alpha characters (non-alpha-in-dictionary)\n";
+}' "$file"
+}
+
 cleanup_file() {
   maybe_bad="$1"
   type="$2"
@@ -275,6 +290,10 @@ cleanup_file() {
     patterns|excludes|only)
       check_pattern_file "$maybe_bad"
     ;;
+    dictionary|expect|allow)
+      check_dictionary "$maybe_bad"
+    ;;
+    # reject isn't checked, it allows for regular expressions
   esac
   check_for_newline_at_eof "$maybe_bad"
 }
