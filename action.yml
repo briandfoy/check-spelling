@@ -29,7 +29,5 @@ runs:
   using: 'composite'
   steps:
     - run: |
-        pwd
-        ls -alR
-        perl master_controller.pl
+        perl ${{ github.action_path }}/master_controller.pl
       shell: bash
