@@ -7,7 +7,7 @@ use File::Spec::Functions;
 
 my $dirname = dirname(__FILE__);
 
-*DEBUG = *STDOUT;
+*DEBUG = *STDERR;
 
 sub items_from_file {
   my ($file, $fallback) = @_;
