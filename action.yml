@@ -28,5 +28,8 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - run: perl master_controller.pl
+    - run: |
+        pwd
+        ls
+        perl master_controller.pl
       shell: bash
