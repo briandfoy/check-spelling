@@ -28,5 +28,5 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - run: perl -E 'say "Hello World"'
+    - run: perl master_controller.pl
       shell: bash
