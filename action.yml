@@ -30,6 +30,6 @@ runs:
   steps:
     - run: |
         pwd
-        ls
+        ls -alR
         perl master_controller.pl
       shell: bash
