@@ -1,6 +1,6 @@
 name: 'Check spelling'
 description: 'Spell check commits'
-author: 'jsoref'
+author: 'briandfoy'
 branding:
   icon: 'edit-3'
   color: 'red'
@@ -26,5 +26,7 @@ inputs:
   debug:
     description: 'Debug'
 runs:
-  using: 'node12'
-  main: 'trampoline.js'
+  using: 'composite'
+  steps:
+    - run: perl -E 'say "Hello World"'
+      shell: bash
