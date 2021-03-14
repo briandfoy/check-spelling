@@ -5,29 +5,14 @@ branding:
   icon: 'edit-3'
   color: 'red'
 inputs:
-  GITHUB_TOKEN:
-    description: 'The GITHUB_TOKEN secret'
-    default: "${{ github.token }}"
-    required: true
-  bucket:
-    description: 'Container for spelling configuration'
-  project:
-    description: 'Folder/Branch within bucket containing spelling configuration'
-  config:
-    description: 'Spelling configuration directory'
-    default: ".github/actions/spelling"
-  dictionary_url:
-    description: "Location of dictionary (if you aren't providing one in your repository)"
-    default: 'https://raw.githubusercontent.com/check-spelling/check-spelling/dictionary-$DICTIONARY_VERSION/dict.txt'
-  dictionary_version:
-    description: 'Version of the dictionary (only used if the url includes $DICTIONARY_VERSION)'
-    default: 20200211
-
   debug:
-    description: 'Debug'
+    description: 'Turn on more information'
+    default: 0
 runs:
   using: 'composite'
   steps:
     - run: |
         perl ${{ github.action_path }}/master_controller.pl
       shell: bash
+      env:
+        INPUT_DEBUG: ${{ inputs.debug }}
